@@ -2,6 +2,14 @@
 #DICTIONARY
 #--------------------------------------
 
+#Statistics from PUMFs
+#Calgary income mean = 49597 (std. = 43451)
+#Calgary income mean for owners = 53607 (60449)
+#Calgary income mean for renters = 34355 (13576)
+#Calgary dwelling value mean = 492090 (263662)
+#Calgary tenure
+#% mortgage 69%
+#%owners 
 
 #----------------------------------
 # Initialization Phase
