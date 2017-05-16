@@ -1,5 +1,3 @@
-
-
 #--------------------------------------
 #DICTIONARY
 #--------------------------------------
@@ -21,9 +19,19 @@
 #3. Distance data
 #4. 
 #----------------------------------
+setwd("D:\\ALLWORK\\PROJECTS\\Floodnet\\GISdata")
+df <- data.frame(read.csv(file="StudyData.csv", header=T))
+df$percown <- df$Owners/df$Dwellings
 
+#library(data.table)
+dt <- data.table(df)
+dt[,list(wtmean = weighted.mean(Income, Pop)),by=DN]
+dt[,list(wtmean = weighted.mean(Dwellval, Pop)),by=DN]
+dt[,list(wtmean = weighted.mean(percown, Pop)),by=DN]
 
-
+dt[,list(wtmean = weighted.mean(Dwellval, Pop)),by=Evacuated]
+dt[,list(wtmean = weighted.mean(Income, Pop)),by=Evacuated]
+dt[,list(wtmean = weighted.mean(percown, Pop)),by=Evacuated]
 
 #----------------------------------
 # Initialization Phase
