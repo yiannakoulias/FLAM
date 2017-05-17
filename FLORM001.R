@@ -11,7 +11,6 @@
 #% mortgage 69%
 #%owners 
 
-
 #----------------------------------
 # Import the data
 #1. Census data
@@ -32,6 +31,17 @@ dt[,list(wtmean = weighted.mean(percown, Pop)),by=DN]
 dt[,list(wtmean = weighted.mean(Dwellval, Pop)),by=Evacuated]
 dt[,list(wtmean = weighted.mean(Income, Pop)),by=Evacuated]
 dt[,list(wtmean = weighted.mean(percown, Pop)),by=Evacuated]
+
+#----------------------------------
+# Model
+#----------------------------------
+
+WTP <- 100
+DIST <- -0.01
+INC <- 0.1
+HAZ <- 0.025
+T <- 0.05
+P <- WTP*DIST + WTP*INC + WTP*HAZ + WTP*T
 
 #----------------------------------
 # Initialization Phase
