@@ -18,7 +18,6 @@
 # Set global indicators
 #----------------------------------
 
-ITERATIONS <- 10
 
 #----------------------------------
 # Import the data
@@ -94,6 +93,11 @@ dt[,list(wtmean = weighted.mean(percown, Pop)),by=Evacuated]
 # Models
 #----------------------------------
 
+
+ITERATIONS <- 100
+PRICEMAX <- 200 #multiply by 100 to get annual premium for 100K coverage
+
+
 #factors that may raise purchase overall include
 #1. Trust in insurers / insurer credibility
 #2. Regulations that force mortgage holders to seek insurance (SFHA)
@@ -112,8 +116,8 @@ sum_upper <- 0
 sum_lower <- 0
 running_price <- 0
 sd_matrix <- matrix(0,nrow=1543,ncol=ITERATIONS)
-price_matrix <- matrix(0,nrow=1543,ncol=40)
-for(j in seq(from=1, to=10, by=1))
+price_matrix <- matrix(0,nrow=1543,ncol=4*PRICEMAX)
+for(j in seq(from=1, to=PRICEMAX, by=1))
 {
   price <- j # this is price per $1000 in coverage
   time <- 1
@@ -126,7 +130,7 @@ for(j in seq(from=1, to=10, by=1))
       0.390*log(df$Income) + 
       -0.156*log(price) +
       0.026*log(time) + #has to be hardcoded
-      0.018*llog(rtruncnorm(1543,a=0,b=3.366,mean=0.004,sd=0.083)) + #mitigation random effect
+      0.018*log(rtruncnorm(1543,a=0,b=3.366,mean=0.004,sd=0.083)) + #mitigation random effect
       1.009*df$vlrisk + #proxy for % FloodPlain
       -0.0327*rtruncnorm(1543,a=0,b=31.36,mean=1.08,sd=3.28) + #NoNFIP
       0.0105*df$AA + #%AA
@@ -143,10 +147,10 @@ for(j in seq(from=1, to=10, by=1))
     sd_matrix[,i] <- df$WTB01/1000 #store the value in a matrix
   }
   price_matrix[,j] <- apply(sd_matrix,1,mean) #take the mean of prediction for price j
-  price_matrix[,j+10] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
+  price_matrix[,j+PRICEMAX] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
   df$buyers <- price_matrix[,j]*df$Dwellings #calculate the number of dwellings that would buy at price j
-  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+10]*df$Dwellings
-  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+10]*df$Dwellings
+  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+PRICEMAX]*df$Dwellings
+  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+PRICEMAX]*df$Dwellings
   sum_upper <- rbind(sum_upper,sum(df$upper_buyers))
   sum_lower <- rbind(sum_lower,sum(df$lower_buyers))
   sum_buyers <- rbind(sum_buyers,sum(df$buyers))
@@ -159,12 +163,12 @@ pricevurve01 <- pricevurve01[!(pricevurve01$V1==0),]
 pricevurve01$m <- "Atreya"
 
 
-households_by_price01 <- price_matrix[,1:10]*df$Dwellings
+households_by_price01 <- price_matrix[,1:PRICEMAX]*df$Dwellings
 
-output <- df[c("DAUID")]
-output <- cbind(output,households_by_price01)
+output01 <- df[c("DAUID")]
+output01 <- cbind(output01,households_by_price01)
 
-write.csv(output,file="model01.csv")
+write.csv(output01,file="model01.csv")
 
 #-------------------------------------------------
 # MODEL 2 - Based on Browne add Hoyt 2000
@@ -177,29 +181,29 @@ sum_upper <- 0
 sum_lower <- 0
 running_price <- 0
 sd_matrix <- matrix(0,nrow=1543,ncol=ITERATIONS)
-price_matrix <- matrix(0,nrow=1543,ncol=20)
-for(j in seq(from=1, to=10, by=1))
+price_matrix <- matrix(0,nrow=1543,ncol=4*PRICEMAX)
+for(j in seq(from=1, to=PRICEMAX, by=1))
 {
   price <- j + (j*.27) # this is price per $1000 in coverage
   df$WTBA <- 0
   for(i in 1:ITERATIONS)
   {
-    df$ln_WTB <- 0.807 + 
+    df$ln_WTB <- exp(0.807 + 
       -0.007*rtruncnorm(1543,a=0,b=1.6,mean=0.463,sd=0.533) + #mitigation expenses per capita
       0.009*rtruncnorm(1543,a=0,b=9.5,mean=1.815,sd=3.162) + #disaster relief
       -0.109*log(price) + #price of the insurance
-      1.4*log(((df$Income/1000)+((df$Income/1000)*0.27)/6.5)) + #have to adjust for inflation and disposable income vs. income (Canada)
+      1.4*log((df$Income-(df$Income*.27) - (df$Income*.50))/1000) + #have to adjust for inflation and disposable income vs. income (Canada)
       -0.056*rtruncnorm(1543,a=0,b=3.9,mean=2.817,sd=1.316) +
-      0.017*rtruncnorm(1543,a=0,b=108.2,mean=9.825,sd=36.052)
-    df$WTB02 <- df$ln_WTB/1000 #i did not exponentiate this because it looks like the authors made an error
+      0.017*rtruncnorm(1543,a=0,b=108.2,mean=2.28,sd=6.052))
+    df$WTB02 <- df$ln_WTB/1000
     df$WTBA <- df$WTB02 + df$WTBA
     sd_matrix[,i] <- df$WTB02
   }
   price_matrix[,j] <- apply(sd_matrix,1,mean) #take the mean of prediction for price j
-  price_matrix[,j+10] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
+  price_matrix[,j+PRICEMAX] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
   df$buyers <- price_matrix[,j]*df$Dwellings #calculate the number of dwellings that would buy at price j
-  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+10]*df$Dwellings
-  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+10]*df$Dwellings
+  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+PRICEMAX]*df$Dwellings
+  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+PRICEMAX]*df$Dwellings
   sum_upper <- rbind(sum_upper,sum(df$upper_buyers))
   sum_lower <- rbind(sum_lower,sum(df$lower_buyers))
   sum_buyers <- rbind(sum_buyers,sum(df$buyers))
@@ -211,12 +215,12 @@ pricevurve02 <- pricevurve02[!(pricevurve02$V1==0),]
 pricevurve02$m <- "Browne"
 
 
-households_by_price02 <- price_matrix[,1:10]*df$Dwellings
+households_by_price02 <- price_matrix[,1:PRICEMAX]*df$Dwellings
 
-output <- df[c("DAUID")]
-output <- cbind(output,households_by_price02)
+output02 <- df[c("DAUID")]
+output02 <- cbind(output02,households_by_price02)
 
-write.csv(output,file="model02.csv")
+write.csv(output02,file="model02.csv")
 
 #-------------------------------------------------
 # MODEL 3 - Based on Hung et al., 2009
@@ -227,7 +231,8 @@ sum_upper <- 0
 sum_lower <- 0
 running_price <- 0
 sd_matrix <- matrix(0,nrow=1543,ncol=ITERATIONS)
-for(j in seq(from=1, to=10, by=1))
+price_matrix <- matrix(0,nrow=1543,ncol=4*PRICEMAX)
+for(j in seq(from=1, to=PRICEMAX, by=1))
 {
   price <- j
   df$WTBA <- 0
@@ -256,10 +261,10 @@ for(j in seq(from=1, to=10, by=1))
     df$WTBA <- df$WTB03 + df$WTBA
   }
   price_matrix[,j] <- apply(sd_matrix,1,mean) #take the mean of prediction for price j
-  price_matrix[,j+10] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
+  price_matrix[,j+PRICEMAX] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
   df$buyers <- price_matrix[,j]*df$Dwellings #calculate the number of dwellings that would buy at price j
-  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+10]*df$Dwellings
-  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+10]*df$Dwellings
+  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+PRICEMAX]*df$Dwellings
+  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+PRICEMAX]*df$Dwellings
   sum_upper <- rbind(sum_upper,sum(df$upper_buyers))
   sum_lower <- rbind(sum_lower,sum(df$lower_buyers))
   sum_buyers <- rbind(sum_buyers,sum(df$buyers))
@@ -271,12 +276,12 @@ pricevurve03 <- pricevurve03[!(pricevurve03$V1==0),]
 pricevurve03$m <- "Hung"
 
 
-households_by_price03 <- price_matrix[,1:10]*df$Dwellings
+households_by_price03 <- price_matrix[,1:PRICEMAX]*df$Dwellings
 
-output <- df[c("DAUID")]
-output <- cbind(output,households_by_price03)
+output03 <- df[c("DAUID")]
+output03 <- cbind(output03,households_by_price03)
 
-write.csv(output,file="model03.csv")
+write.csv(output03,file="model03.csv")
 
 #-------------------------------------------------
 # MODEL 4 - Based on Kriesel and Landry 2004
@@ -287,7 +292,8 @@ sum_upper <- 0
 sum_lower <- 0
 running_price <- 0
 sd_matrix <- matrix(0,nrow=1543,ncol=ITERATIONS)
-for(j in seq(from=1, to=10, by=1))
+price_matrix <- matrix(0,nrow=1543,ncol=4*PRICEMAX)
+for(j in seq(from=1, to=PRICEMAX, by=1))
 {
   price <- j
   df$WTBA <- 0
@@ -306,10 +312,10 @@ for(j in seq(from=1, to=10, by=1))
     df$WTBA <- df$WTB04 + df$WTBA
   }
   price_matrix[,j] <- apply(sd_matrix,1,mean) #take the mean of prediction for price j
-  price_matrix[,j+10] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
+  price_matrix[,j+PRICEMAX] <- apply(sd_matrix,1,sd) #take the sd of prediction for price j
   df$buyers <- price_matrix[,j]*df$Dwellings #calculate the number of dwellings that would buy at price j
-  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+10]*df$Dwellings
-  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+10]*df$Dwellings
+  df$upper_buyers <- price_matrix[,j]*df$Dwellings + price_matrix[,j+PRICEMAX]*df$Dwellings
+  df$lower_buyers <- price_matrix[,j]*df$Dwellings - price_matrix[,j+PRICEMAX]*df$Dwellings
   sum_upper <- rbind(sum_upper,sum(df$upper_buyers))
   sum_lower <- rbind(sum_lower,sum(df$lower_buyers))
   sum_buyers <- rbind(sum_buyers,sum(df$buyers))
@@ -320,12 +326,41 @@ pricevurve04 <- as.data.frame(pricevurve04)
 pricevurve04 <- pricevurve04[!(pricevurve04$V1==0),]
 pricevurve04$m <- "Kriesel"
 
-households_by_price04 <- price_matrix[,1:10]*df$Dwellings
+households_by_price04 <- price_matrix[,1:PRICEMAX]*df$Dwellings
 
-output <- df[c("DAUID")]
-output <- cbind(output,households_by_price04)
+output04 <- df[c("DAUID")]
+output04 <- cbind(output04,households_by_price04)
 
-write.csv(output,file="model04.csv")
+write.csv(output04,file="model04.csv")
+
+
+#-------------------------------------------------
+# OPTIMIZE
+#-------------------------------------------------
+library(reshape2)
+
+o1 <- reshape(output01, direction="long", varying=list(names(output01)[2:(PRICEMAX+1)]),timevar="Price", times=1:PRICEMAX,v.names="WTB1")
+o2 <- reshape(output02, direction="long", varying=list(names(output02)[2:(PRICEMAX+1)]),timevar="Price", times=1:PRICEMAX,v.names="WTB2")
+o4 <- reshape(output04, direction="long", varying=list(names(output03)[2:(PRICEMAX+1)]),timevar="Price", times=1:PRICEMAX,v.names="WTB4")
+output <- cbind(o1[c("DAUID","Price","WTB1")],o2[c("WTB2")],o4[c("WTB4")])
+output$meanWTB <- (output$WTB1+output$WTB2+output$WTB4)/3
+output$profit <- output$meanWTB*output$Price*25 #assumes 25k in coverage average
+output <- output[order(output$DAUID,-output$profit),]
+output <- aggregate(output, list(output$DAUID), FUN=head, 1)
+sum(output$profit)
+sum(output$meanWTB)
+
+#merge back to the original data
+df <- merge(df,output[c("DAUID","meanWTB","profit")],by="DAUID")
+
+write.csv(df,file="complete.csv")
+
+aggregate(df[c("meanWTB")], by=list(df$DN),FUN=sum, na.rm=TRUE)
+
+
+
+
+
 
 
 #-------------------------------------------------
